@@ -57,10 +57,15 @@ public class Server {
      */
     public static void main(String[] args) throws IOException {
         // get port first, use to logback.xml
+        // 从环境变量或运行时参数中获取监听端口，默认端口8091
         int port = PortHelper.getPort(args);
+        // 把监听端口设置到SystemProperty中，Logback的LoggerContextListener实现类
+        // SystemPropertyLoggerContextListener会把Port写入到Logback的Context中，
+        // 在logback.xml文件中会使用Port变量来构建日志文件名称。
         System.setProperty(ConfigurationKeys.SERVER_PORT, Integer.toString(port));
 
         // create logger
+        // 创建Logger
         final Logger logger = LoggerFactory.getLogger(Server.class);
         if (ContainerHelper.isRunningInContainer()) {
             logger.info("The server is running in container.");
@@ -69,20 +74,35 @@ public class Server {
         //initialize the parameter parser
         //Note that the parameter parser should always be the first line to execute.
         //Because, here we need to parse the parameters needed for startup.
+        // 解析启动以及配置文件的各种配置参数
         ParameterParser parameterParser = new ParameterParser(args);
 
         //initialize the metrics
+        // metrics相关，这里是使用SPI机制获取Registry实例对象
         MetricsManager.get().init();
 
+        // 把从配置文件中读取到的storeMode写入SystemProperty中，方便其他类使用。
         System.setProperty(ConfigurationKeys.STORE_MODE, parameterParser.getStoreMode());
 
+        // 创建NettyRemotingServer实例，NettyRemotingServer是一个基于Netty实现的Rpc框架，
+        // 此时并没有初始化，NettyRemotingServer负责与客户端SDK中的TM、RM进行网络通信。
         NettyRemotingServer nettyRemotingServer = new NettyRemotingServer(WORKING_THREADS);
         //server port
+        // 设置监听端口
         nettyRemotingServer.setListenPort(parameterParser.getPort());
+        // UUIDGenerator初始化，UUIDGenerator基于雪花算法实现，
+        // 用于生成全局事务、分支事务的id。
+        // 多个Server实例配置不同的ServerNode，保证id的唯一性
         UUIDGenerator.init(parameterParser.getServerNode());
         //log store mode : file, db, redis
+        // SessionHolder负责事务日志（状态）的持久化存储，
+        // 当前支持file、db、redis三种存储模式，集群部署模式要使用db或redis模式
+        // SessionHolder负责Session的持久化，一个Session对象对应一个事务，事务分为两种：全局事务（GlobalSession）和分支事务（BranchSession）。
+        // SessionHolder支持file和db两种持久化方式，其中db支持集群模式，推荐使用db。
         SessionHolder.init(parameterParser.getStoreMode());
 
+        // 创建初始化DefaultCoordinator实例，DefaultCoordinator是TC的核心事务逻辑处理类，
+        // 底层包含了AT、TCC、SAGA等不同事务类型的逻辑处理。
         DefaultCoordinator coordinator = new DefaultCoordinator(nettyRemotingServer);
         coordinator.init();
         nettyRemotingServer.setHandler(coordinator);
@@ -99,6 +119,7 @@ public class Server {
         XID.setPort(nettyRemotingServer.getListenPort());
 
         try {
+            // 初始化Netty，开始监听端口并阻塞在这里，等待程序关闭
             nettyRemotingServer.init();
         } catch (Throwable e) {
             logger.error("nettyServer init error:{}", e.getMessage(), e);

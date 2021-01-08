@@ -86,6 +86,10 @@ public class NettyRemotingServer extends AbstractNettyRemotingServer {
 
     private void registerProcessor() {
         // 1. registry on request message processor
+        // 1. 注册核心的ServerOnRequestProcessor，即与事务处理相关的Processor，
+        // 如：全局事务开始、提交，分支事务注册、反馈当前状态等。
+        // ServerOnRequestProcessor的构造函数中传入getHandler()返回的示例，这个handler
+        // 就是前面提到的DefaultCoordinator，DefaultCoordinator是分布式事务的核心处理类
         ServerOnRequestProcessor onRequestProcessor =
             new ServerOnRequestProcessor(this, getHandler());
         super.registerProcessor(MessageType.TYPE_BRANCH_REGISTER, onRequestProcessor, messageExecutor);
@@ -98,17 +102,23 @@ public class NettyRemotingServer extends AbstractNettyRemotingServer {
         super.registerProcessor(MessageType.TYPE_GLOBAL_STATUS, onRequestProcessor, messageExecutor);
         super.registerProcessor(MessageType.TYPE_SEATA_MERGE, onRequestProcessor, messageExecutor);
         // 2. registry on response message processor
+        // 2.注册ResponseProcessor，ResponseProcessor用于处理当Server端主动发起请求时，
+        // Client端回复的消息，即Response。如：Server向Client端发送分支事务提交或者回滚的请求时，
+        // Client返回提交/回滚的结果
         ServerOnResponseProcessor onResponseProcessor =
             new ServerOnResponseProcessor(getHandler(), getFutures());
         super.registerProcessor(MessageType.TYPE_BRANCH_COMMIT_RESULT, onResponseProcessor, messageExecutor);
         super.registerProcessor(MessageType.TYPE_BRANCH_ROLLBACK_RESULT, onResponseProcessor, messageExecutor);
         // 3. registry rm message processor
+        // 3. Client端发起RM注册请求时对应的Processor
         RegRmProcessor regRmProcessor = new RegRmProcessor(this);
         super.registerProcessor(MessageType.TYPE_REG_RM, regRmProcessor, messageExecutor);
         // 4. registry tm message processor
+        // 4. Client端发起TM注册请求时对应的Processor
         RegTmProcessor regTmProcessor = new RegTmProcessor(this);
         super.registerProcessor(MessageType.TYPE_REG_CLT, regTmProcessor, null);
         // 5. registry heartbeat message processor
+        // 5. Client端发送心跳请求时对应的Processor
         ServerHeartbeatProcessor heartbeatMessageProcessor = new ServerHeartbeatProcessor(this);
         super.registerProcessor(MessageType.TYPE_HEARTBEAT_MSG, heartbeatMessageProcessor, null);
     }

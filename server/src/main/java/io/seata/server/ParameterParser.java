@@ -62,6 +62,7 @@ public class ParameterParser {
 
     private void init(String[] args) {
         try {
+            // 判断是否运行在容器中，如果运行在容器中则配置从环境变量中获取
             if (ContainerHelper.isRunningInContainer()) {
                 this.seataEnv = ContainerHelper.getEnv();
                 this.host = ContainerHelper.getHost();
@@ -69,6 +70,8 @@ public class ParameterParser {
                 this.serverNode = ContainerHelper.getServerNode();
                 this.storeMode = ContainerHelper.getStoreMode();
             } else {
+                // 基于JCommander获取启动应用程序时配置的参数，
+                // JCommander通过注解、反射的方式把参数赋值到当前类的字段上。
                 JCommander jCommander = JCommander.newBuilder().addObject(this).build();
                 jCommander.parse(args);
                 if (help) {
@@ -77,6 +80,8 @@ public class ParameterParser {
                     System.exit(0);
                 }
             }
+            // serverNode用于雪花算中的实例的唯一标识，需要保证唯一。
+            // 如果没有指定基于当前服务器的I随机生成一个
             if (this.serverNode == null) {
                 this.serverNode = IdWorker.initWorkerId();
             }
@@ -84,6 +89,9 @@ public class ParameterParser {
                 System.setProperty(ENV_PROPERTY_KEY, seataEnv);
             }
             if (StringUtils.isBlank(storeMode)) {
+                // 这里牵扯到一个重要的Configuration类，ParameterParser只负责获取ip、port、storeMode等核心参数，
+                // 其他的参数都是从Configuration中获取的。这里如果没有启动参数没有指定storeMode，
+                // 就从Configuration类中获取。
                 storeMode = ConfigurationFactory.getInstance().getConfig(ConfigurationKeys.STORE_MODE,
                     SERVER_DEFAULT_STORE_MODE);
             }

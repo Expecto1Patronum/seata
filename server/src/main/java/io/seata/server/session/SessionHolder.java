@@ -117,6 +117,7 @@ public class SessionHolder {
             // unknown store
             throw new IllegalArgumentException("unknown store mode:" + mode);
         }
+        // reload方法对于db模式可以忽略
         reload();
     }
 

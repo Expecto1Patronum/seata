@@ -165,6 +165,9 @@ public class DataBaseSessionManager extends AbstractSessionManager
         return transactionStoreManager.readSession(xid, withBranchSessions);
     }
 
+    // 根据实例的taskName来决定allSessions返回的事务列表，
+    // 如taskName等于ASYNC_COMMITTING_SESSION_MANAGER_NAME的
+    // 就返回所有状态为AsyncCommitting的事务。
     @Override
     public Collection<GlobalSession> allSessions() {
         // get by taskName
@@ -177,6 +180,7 @@ public class DataBaseSessionManager extends AbstractSessionManager
                 GlobalStatus.Rollbacking, GlobalStatus.TimeoutRollbacking, GlobalStatus.TimeoutRollbackRetrying}));
         } else {
             // all data
+            // taskName为null，则对应ROOT_SESSION_MANAGER，即获取所有状态的事务
             return findGlobalSessions(new SessionCondition(new GlobalStatus[] {
                 GlobalStatus.UnKnown, GlobalStatus.Begin,
                 GlobalStatus.Committing, GlobalStatus.CommitRetrying, GlobalStatus.Rollbacking,
