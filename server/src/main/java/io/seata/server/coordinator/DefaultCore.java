@@ -123,10 +123,13 @@ public class DefaultCore implements Core {
     @Override
     public String begin(String applicationId, String transactionServiceGroup, String name, int timeout)
         throws TransactionException {
+        // 创建全局事务会话信息
         GlobalSession session = GlobalSession.createGlobalSession(applicationId, transactionServiceGroup, name,
             timeout);
+        // 添加会话生命周期监听器
         session.addSessionLifecycleListener(SessionHolder.getRootSessionManager());
 
+        // 开启全局事务
         session.begin();
 
         // transaction start event
@@ -145,14 +148,19 @@ public class DefaultCore implements Core {
         globalSession.addSessionLifecycleListener(SessionHolder.getRootSessionManager());
         // just lock changeStatus
 
+        // 是否需要马上提交
         boolean shouldCommit = SessionHolder.lockAndExecute(globalSession, () -> {
             // Highlight: Firstly, close the session, then no more branch can be registered.
+            // 提交事务前，先不让其他分支注册进来，并释放全局锁
             globalSession.closeAndClean();
             if (globalSession.getStatus() == GlobalStatus.Begin) {
                 if (globalSession.canBeCommittedAsync()) {
+                    // 异步提交
+                    // at 和 一阶段失败 两种情况
                     globalSession.asyncCommit();
                     return false;
                 } else {
+                    // 提交中
                     globalSession.changeStatus(GlobalStatus.Committing);
                     return true;
                 }
@@ -161,14 +169,19 @@ public class DefaultCore implements Core {
         });
 
         if (shouldCommit) {
+
+            // 提交中的分支没有成功提交 return false
             boolean success = doGlobalCommit(globalSession, false);
             if (success && !globalSession.getBranchSessions().isEmpty()) {
+                // 还有事务需要异步提交，异步提交分支事务
                 globalSession.asyncCommit();
                 return GlobalStatus.Committed;
             } else {
+                // 返回全局事务状态
                 return globalSession.getStatus();
             }
         } else {
+            // 异步提交时，虽然还没有来得及提交，但是也可以认为已经提交了
             return globalSession.getStatus() == GlobalStatus.AsyncCommitting ? GlobalStatus.Committed : globalSession.getStatus();
         }
     }
@@ -184,25 +197,32 @@ public class DefaultCore implements Core {
             success = getCore(BranchType.SAGA).doGlobalCommit(globalSession, retrying);
         } else {
             for (BranchSession branchSession : globalSession.getSortedBranches()) {
+                // 获取当前分支的状态
                 // if not retrying, skip the canBeCommittedAsync branches
                 if (!retrying && branchSession.canBeCommittedAsync()) {
                     continue;
                 }
 
+                // 获取当前分支事务的状态
                 BranchStatus currentStatus = branchSession.getStatus();
                 if (currentStatus == BranchStatus.PhaseOne_Failed) {
+                    // 一阶段失败，在全局事务中删除当前分支事务
                     globalSession.removeBranch(branchSession);
                     continue;
                 }
                 try {
+                    // 通过rpc调用通知分支事务提交
                     BranchStatus branchStatus = getCore(branchSession.getBranchType()).branchCommit(globalSession, branchSession);
 
                     switch (branchStatus) {
                         case PhaseTwo_Committed:
+                            // 提交成功，删除分支
                             globalSession.removeBranch(branchSession);
                             continue;
                         case PhaseTwo_CommitFailed_Unretryable:
+                            // 提交失败且不会重试
                             if (globalSession.canBeCommittedAsync()) {
+                                // at模式/一阶段失败
                                 LOGGER.error(
                                     "Committing branch transaction[{}], status: PhaseTwo_CommitFailed_Unretryable, please check the business log.", branchSession.getBranchId());
                                 continue;
@@ -241,6 +261,7 @@ public class DefaultCore implements Core {
             }
         }
         if (success && globalSession.getBranchSessions().isEmpty()) {
+            // 没有需要处理的分支事务且成功了
             SessionHelper.endCommitted(globalSession);
 
             // committed event

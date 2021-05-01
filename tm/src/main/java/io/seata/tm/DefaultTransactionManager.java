@@ -47,9 +47,11 @@ public class DefaultTransactionManager implements TransactionManager {
     @Override
     public String begin(String applicationId, String transactionServiceGroup, String name, int timeout)
         throws TransactionException {
+        // 创建开启全局事务请求
         GlobalBeginRequest request = new GlobalBeginRequest();
         request.setTransactionName(name);
         request.setTimeout(timeout);
+        // 调用TC
         GlobalBeginResponse response = (GlobalBeginResponse) syncCall(request);
         if (response.getResultCode() == ResultCode.Failed) {
             throw new TmTransactionException(TransactionExceptionCode.BeginFailed, response.getMsg());
@@ -61,6 +63,7 @@ public class DefaultTransactionManager implements TransactionManager {
     public GlobalStatus commit(String xid) throws TransactionException {
         GlobalCommitRequest globalCommit = new GlobalCommitRequest();
         globalCommit.setXid(xid);
+        // 调用tc提交全局事务
         GlobalCommitResponse response = (GlobalCommitResponse) syncCall(globalCommit);
         return response.getGlobalStatus();
     }

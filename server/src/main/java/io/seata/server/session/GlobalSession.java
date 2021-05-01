@@ -107,7 +107,9 @@ public class GlobalSession implements SessionLifecycle, SessionStorable {
      * @return the boolean
      */
     public boolean canBeCommittedAsync() {
+        // 校验分支事务是否可以提交
         for (BranchSession branchSession : branchSessions) {
+            // branchSession.canBeCommittedAsync() true: at模式或一阶段失败
             if (!branchSession.canBeCommittedAsync()) {
                 return false;
             }
@@ -315,6 +317,7 @@ public class GlobalSession implements SessionLifecycle, SessionStorable {
         this.transactionServiceGroup = transactionServiceGroup;
         this.transactionName = transactionName;
         this.timeout = timeout;
+        // 生成xid
         this.xid = XID.generateXID(transactionId);
     }
 

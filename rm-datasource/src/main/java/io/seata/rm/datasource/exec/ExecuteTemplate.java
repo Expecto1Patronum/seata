@@ -68,15 +68,19 @@ public class ExecuteTemplate {
                                                      Object... args) throws SQLException {
         if (!RootContext.requireGlobalLock() && BranchType.AT != RootContext.getBranchType()) {
             // Just work as original statement
+            // 如果不需要全局锁且非AT模式，直接开始代码逻辑处理
             return statementCallback.execute(statementProxy.getTargetStatement(), args);
         }
 
+        // ======== 以下为AT模式的逻辑 =========
         String dbType = statementProxy.getConnectionProxy().getDbType();
+        // sqlRecognizer sql识别器（识别解析sql）
         if (CollectionUtils.isEmpty(sqlRecognizers)) {
             sqlRecognizers = SQLVisitorFactory.get(
                     statementProxy.getTargetSQL(),
                     dbType);
         }
+        // 构建一个包含sql解析的执行期
         Executor<T> executor;
         if (CollectionUtils.isEmpty(sqlRecognizers)) {
             executor = new PlainExecutor<>(statementProxy, statementCallback);

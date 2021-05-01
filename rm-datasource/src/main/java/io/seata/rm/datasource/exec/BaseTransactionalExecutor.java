@@ -274,6 +274,7 @@ public abstract class BaseTransactionalExecutor<T, S extends Statement> implemen
 
         TableRecords lockKeyRecords = sqlRecognizer.getSQLType() == SQLType.DELETE ? beforeImage : afterImage;
         String lockKeys = buildLockKey(lockKeyRecords);
+        // 增加本地锁
         connectionProxy.appendLockKey(lockKeys);
 
         SQLUndoLog sqlUndoLog = buildUndoItem(beforeImage, afterImage);

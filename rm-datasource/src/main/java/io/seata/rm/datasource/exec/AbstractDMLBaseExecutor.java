@@ -71,6 +71,7 @@ public abstract class AbstractDMLBaseExecutor<T, S extends Statement> extends Ba
     @Override
     public T doExecute(Object... args) throws Throwable {
         AbstractConnectionProxy connectionProxy = statementProxy.getConnectionProxy();
+        // 是否为自动提交
         if (connectionProxy.getAutoCommit()) {
             return executeAutoCommitTrue(args);
         } else {
@@ -86,13 +87,18 @@ public abstract class AbstractDMLBaseExecutor<T, S extends Statement> extends Ba
      * @throws Exception the exception
      */
     protected T executeAutoCommitFalse(Object[] args) throws Exception {
+        // 多主键仅支持mysql
         if (!JdbcConstants.MYSQL.equalsIgnoreCase(getDbType()) && getTableMeta().getPrimaryKeyOnlyName().size() > 1)
         {
             throw new NotSupportYetException("multi pk only support mysql!");
         }
+        // 构建sql执行前的镜像
         TableRecords beforeImage = beforeImage();
+        // 执行sql
         T result = statementCallback.execute(statementProxy.getTargetStatement(), args);
+        // 构建sql执行后的镜像
         TableRecords afterImage = afterImage(beforeImage);
+        // 构建undo log
         prepareUndoLog(beforeImage, afterImage);
         return result;
     }

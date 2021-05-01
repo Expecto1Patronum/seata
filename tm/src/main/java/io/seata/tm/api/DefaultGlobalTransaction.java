@@ -90,21 +90,27 @@ public class DefaultGlobalTransaction implements GlobalTransaction {
 
     @Override
     public void begin(int timeout, String name) throws TransactionException {
+        // 如果不是全局事务的发起者
         if (role != GlobalTransactionRole.Launcher) {
+            // 需要有全局id
             assertXIDNotNull();
             if (LOGGER.isDebugEnabled()) {
                 LOGGER.debug("Ignore Begin(): just involved in global transaction [{}]", xid);
             }
             return;
         }
+        // 如果是全局事务的发起者，则应该没有xid(本地)
         assertXIDNull();
+        // 获取上下文中的xid(例如rpc请求中携带的)
         String currentXid = RootContext.getXID();
         if (currentXid != null) {
             throw new IllegalStateException("Global transaction already exists," +
                 " can't begin a new global transaction, currentXid = " + currentXid);
         }
+        // 开启全局事务并设置状态 (rpc请求 获取xid)
         xid = transactionManager.begin(null, null, name, timeout);
         status = GlobalStatus.Begin;
+        // 绑定到上下文中
         RootContext.bind(xid);
         if (LOGGER.isInfoEnabled()) {
             LOGGER.info("Begin new global transaction [{}]", xid);
@@ -114,6 +120,7 @@ public class DefaultGlobalTransaction implements GlobalTransaction {
     @Override
     public void commit() throws TransactionException {
         if (role == GlobalTransactionRole.Participant) {
+            // 事务参与者没有提交事务的权限
             // Participant has no responsibility of committing
             if (LOGGER.isDebugEnabled()) {
                 LOGGER.debug("Ignore Commit(): just involved in global transaction [{}]", xid);
@@ -125,6 +132,7 @@ public class DefaultGlobalTransaction implements GlobalTransaction {
         try {
             while (retry > 0) {
                 try {
+                    // 不断尝试，直到拿到status (提交事务失败会抛异常，抛异常被tc感知到，通知给tm，tm重试)
                     status = transactionManager.commit(xid);
                     break;
                 } catch (Throwable ex) {
