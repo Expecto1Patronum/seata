@@ -149,6 +149,7 @@ public class DataSourceManager extends AbstractResourceManager implements Initia
             throw new ShouldNeverHappenException();
         }
         try {
+            // 获取 undo log 并执行 undo 操作
             UndoLogManagerFactory.getUndoLogManager(dataSourceProxy.getDbType()).undo(dataSourceProxy, xid, branchId);
         } catch (TransactionException te) {
             StackTraceLogger.info(LOGGER, te,

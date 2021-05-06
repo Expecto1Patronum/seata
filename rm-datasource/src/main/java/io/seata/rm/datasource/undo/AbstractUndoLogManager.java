@@ -258,6 +258,7 @@ public abstract class AbstractUndoLogManager implements UndoLogManager {
                     // It is possible that the server repeatedly sends a rollback request to roll back
                     // the same branch transaction to multiple processes,
                     // ensuring that only the undo_log in the normal state is processed.
+                    // 判断是否能够回滚
                     int state = rs.getInt(ClientTableColumnsName.UNDO_LOG_LOG_STATUS);
                     if (!canUndo(state)) {
                         if (LOGGER.isInfoEnabled()) {
@@ -306,6 +307,7 @@ public abstract class AbstractUndoLogManager implements UndoLogManager {
                 // See https://github.com/seata/seata/issues/489
 
                 if (exists) {
+                    // 删除回滚日志
                     deleteUndoLog(xid, branchId, conn);
                     conn.commit();
                     if (LOGGER.isInfoEnabled()) {

@@ -66,8 +66,11 @@ public class UpdateExecutor<T, S extends Statement> extends AbstractDMLBaseExecu
     @Override
     protected TableRecords beforeImage() throws SQLException {
         ArrayList<List<Object>> paramAppenderList = new ArrayList<>();
+        // 获取表结构
         TableMeta tmeta = getTableMeta();
+        // 构建查询sql
         String selectSQL = buildBeforeImageSQL(tmeta, paramAppenderList);
+        // 执行查询，并保存对应的数据库记录到缓存中
         return buildTableRecords(tmeta, selectSQL, paramAppenderList);
     }
 
@@ -111,6 +114,7 @@ public class UpdateExecutor<T, S extends Statement> extends AbstractDMLBaseExecu
         if (beforeImage == null || beforeImage.size() == 0) {
             return TableRecords.empty(getTableMeta());
         }
+        // 构建查询语句
         String selectSQL = buildAfterImageSQL(tmeta, beforeImage);
         ResultSet rs = null;
         try (PreparedStatement pst = statementProxy.getConnection().prepareStatement(selectSQL)) {
@@ -123,6 +127,7 @@ public class UpdateExecutor<T, S extends Statement> extends AbstractDMLBaseExecu
     }
 
     private String buildAfterImageSQL(TableMeta tableMeta, TableRecords beforeImage) throws SQLException {
+        // 利用记录的主键
         StringBuilder prefix = new StringBuilder("SELECT ");
         String whereSql = SqlGenerateUtils.buildWhereConditionByPKs(tableMeta.getPrimaryKeyOnlyName(), beforeImage.pkRows().size(), getDbType());
         String suffix = " FROM " + getFromTableInSQL() + " WHERE " + whereSql;

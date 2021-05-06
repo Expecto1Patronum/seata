@@ -92,13 +92,14 @@ public abstract class AbstractDMLBaseExecutor<T, S extends Statement> extends Ba
         {
             throw new NotSupportYetException("multi pk only support mysql!");
         }
-        // 构建sql执行前的镜像
+        // 构建sql执行前的镜像(查询对应记录并保存) 记录行锁(本地锁)的依据 select for update
         TableRecords beforeImage = beforeImage();
         // 执行sql
         T result = statementCallback.execute(statementProxy.getTargetStatement(), args);
-        // 构建sql执行后的镜像
+        // 构建sql执行后的镜像(查询修改后的记录并保存)
         TableRecords afterImage = afterImage(beforeImage);
-        // 构建undo log
+        // 构建undo log (构建xid，记录id等 lock key 用于全局锁)
+        // 关于分库分表的话，seata直接使用分库分表的代理，便可以解决分库分表的问题
         prepareUndoLog(beforeImage, afterImage);
         return result;
     }
@@ -111,6 +112,7 @@ public abstract class AbstractDMLBaseExecutor<T, S extends Statement> extends Ba
      * @throws Throwable the throwable
      */
     protected T executeAutoCommitTrue(Object[] args) throws Throwable {
+        // 连接代理
         ConnectionProxy connectionProxy = statementProxy.getConnectionProxy();
         try {
             connectionProxy.setAutoCommit(false);

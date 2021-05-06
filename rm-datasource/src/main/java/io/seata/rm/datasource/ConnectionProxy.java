@@ -181,6 +181,8 @@ public class ConnectionProxy extends AbstractConnectionProxy {
     public void commit() throws SQLException {
         try {
             LOCK_RETRY_POLICY.execute(() -> {
+                // commit 之前尝试获取全局锁 见 processGlobalTransactionCommit 和 processLocalCommitWithGlobalLocks
+                // 用的就是刚刚创建的lock key
                 doCommit();
                 return null;
             });
@@ -213,6 +215,7 @@ public class ConnectionProxy extends AbstractConnectionProxy {
 
     private void processGlobalTransactionCommit() throws SQLException {
         try {
+            // 事务发起者，注册
             register();
         } catch (TransactionException e) {
             recognizeLockKeyConflictException(e, context.buildLockKeys());

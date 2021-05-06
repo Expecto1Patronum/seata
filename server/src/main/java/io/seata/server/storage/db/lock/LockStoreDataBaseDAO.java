@@ -98,6 +98,7 @@ public class LockStoreDataBaseDAO implements LockStore {
 
     @Override
     public boolean acquireLock(List<LockDO> lockDOs) {
+        // 校验是否拿锁成功
         Connection conn = null;
         PreparedStatement ps = null;
         ResultSet rs = null;
