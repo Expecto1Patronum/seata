@@ -157,7 +157,7 @@ public class LockStoreDataBaseDAO implements LockStore {
                 conn.rollback();
                 return true;
             }
-            //lock
+            //lock 上锁流程
             if (unrepeatedLockDOs.size() == 1) {
                 LockDO lockDO = unrepeatedLockDOs.get(0);
                 if (!doAcquireLock(conn, lockDO)) {
